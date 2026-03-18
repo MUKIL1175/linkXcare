@@ -64,10 +64,15 @@
 ## 🖇️ Project Structure
 ```text
 /linkXcare
-├── /companion_app      # Flutter source code (Android/iOS)
-├── /esp32_firmware     # MicroPython source code for the glove
-├── alert.mp3           # Alarm resource
-└── intro.mp3           # System boot audio
+├── /companion_app          # Premium Modular Flutter App
+│   ├── /lib/core/          # Global State & App Manager
+│   ├── /lib/pages/         # UI Screens (Dashboard, History, etc.)
+│   ├── /lib/theme/         # Anti-Gravity Theme Configuration
+│   └── main.dart           # Clean Application Entry Point
+├── /esp32_firmware         # MicroPython Firmware for Glove
+├── firebase_rules.json     # Recommended Security Rules
+├── alert.mp3               # SOS Alarm Audio
+└── intro.mp3               # System Boot Audio
 ```
 
 ---

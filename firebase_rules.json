@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "realtime": {
+      "$gloveId": {
+        ".read": "true",
+        ".write": "true"
+      }
+    },
+    "logs": {
+      "$gloveId": {
+        ".read": "true",
+        ".write": "true"
+      }
+    },
+    "devices": {
+      "$gloveId": {
+        ".read": "true",
+        "config": {
+          ".write": "true"
+        }
+      }
+    },
+    "default_gestures": {
+      ".read": "true",
+      ".write": "true"
+    },
+    "custom_gestures": {
+      ".read": "true",
+      ".write": "true"
+    }
+  }
+}
