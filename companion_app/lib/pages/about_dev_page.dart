@@ -97,17 +97,28 @@ class _AboutDevPageState extends State<AboutDevPage> {
     return Container(
       padding: const EdgeInsets.all(15),
       margin: const EdgeInsets.only(top: 20),
-      decoration: BoxDecoration(color: Colors.amber[50], borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.amber)),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: const Color(0xFF2979FF), width: 2),
+      ),
       child: Column(
         children: [
-          const Text("🛠️ DEVELOPER TOOLS"),
-          ElevatedButton(onPressed: () => state.triggerSOS(source: "Manual Test"), child: const Text("Test SOS")),
-          ElevatedButton(onPressed: _autoCalibrateCommand, child: const Text("Trigger Remote Auto-Calibration")),
-          const Divider(),
-          const Text("MANUAL FINGER TESTING"),
+          const Text("🛠️ DEVELOPER TOOLS", style: TextStyle(color: Color(0xFF2979FF), fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2979FF), foregroundColor: Colors.white),
+            onPressed: () => state.triggerSOS(source: "Manual Test"),
+            child: const Text("TEST SOS UNIT"),
+          ),
+          const Divider(color: Colors.white24, height: 30),
+          const Text("MANUAL FINGER TESTING", style: TextStyle(color: Colors.white70, fontSize: 12)),
           ...List.generate(5, (index) => Slider(
             value: state.fsrValues[index].toDouble(),
-            min: 0, max: 100,
+            activeColor: const Color(0xFF2979FF),
+            inactiveColor: Colors.white10,
+            min: 0,
+            max: 100,
             onChanged: (val) {
               setState(() => state.fsrValues[index] = val.toInt());
               FirebaseDatabase.instance.ref('realtime/glove_01/fsr').child(index.toString()).set(val.toInt());
@@ -117,14 +128,6 @@ class _AboutDevPageState extends State<AboutDevPage> {
         ],
       ),
     );
-  }
-
-  void _autoCalibrateCommand() {
-     FirebaseDatabase.instance.ref('devices/glove_01/config').update({
-       'command': 'calibrate',
-       'timestamp': ServerValue.timestamp
-     });
-     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Auto-Calibration Command Sent!")));
   }
 
   Future<void> _simulateGestureRecognition() async {
