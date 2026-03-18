@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "781433537639",
+    "firebase_url": "https://finalyear-1df2d-default-rtdb.firebaseio.com",
+    "project_id": "finalyear-1df2d",
+    "storage_bucket": "finalyear-1df2d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:781433537639:android:1263afea5099ee9edf80c2",
+        "android_client_info": {
+          "package_name": "com.example.glove_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6zuj7VnjsxBZ-2GrZzFxNycE9-Pm6BHc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
