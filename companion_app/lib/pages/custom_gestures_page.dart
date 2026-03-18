@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-import '../core/app_state_manager.dart';
 
 class CustomGesturesPage extends StatefulWidget {
   const CustomGesturesPage({super.key});

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'dart:ui' as ui;
 import 'core/app_state_manager.dart';
 import 'theme/anti_gravity_theme.dart';

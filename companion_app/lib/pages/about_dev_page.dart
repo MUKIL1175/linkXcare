@@ -74,7 +74,12 @@ class _AboutDevPageState extends State<AboutDevPage> {
             const Icon(Icons.accessibility_new, size: 80, color: Colors.indigo),
             const SizedBox(height: 10),
             const Text("LinkXcare v2.0", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            const Text("Developed by: Nisha Priyadharshini J"),
+            Text(
+              state.isDeveloperMode
+                  ? "Designer & Developer: Monamukil SS"
+                  : "Designer & Developer: Nisha Priyadharshini J",
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            ),
             const Divider(),
             SwitchListTile(
               title: const Text("Developer Mode"),

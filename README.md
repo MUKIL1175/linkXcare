@@ -85,5 +85,18 @@
 
 ---
 
-### Developed by: **Nisha Priyadharshini J**
+---
+
+### Creator & Lead Architect
+**Monamukil SS**
+*Visionary behind the LinkXcare platform.*
+"Myself Monamukil, creator of this app, built to bridge the communication gap for the non-verbal."
+
+### Lead Developer (Research)
+**Nisha Priyadharshini J**
 *Part of the EDP Medical IoT Research Initiative.*
+
+---
+
+## ⚖️ Licensing
+This project is licensed under the **MIT License**. See the `LICENSE` file for details.
