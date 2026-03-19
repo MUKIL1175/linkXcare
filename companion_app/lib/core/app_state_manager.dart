@@ -1,17 +1,19 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:audioplayers/audioplayers.dart' as ap;
 import 'package:vibration/vibration.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-class AppStateManager {
+class AppStateManager extends ChangeNotifier {
   static final AppStateManager _instance = AppStateManager._internal();
   factory AppStateManager() => _instance;
   AppStateManager._internal();
 
   final ap.AudioPlayer _audioPlayer = ap.AudioPlayer();
   final DatabaseReference _gloveRef = FirebaseDatabase.instance.ref('realtime/glove_01');
+  final DatabaseReference _statusRef = FirebaseDatabase.instance.ref('devices/glove_01/status');
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
   bool isSosActive = false;
@@ -22,8 +24,8 @@ class AppStateManager {
   bool isGloveConnected = false;
   
   StreamSubscription<DatabaseEvent>? _gloveSubscription;
+  StreamSubscription<DatabaseEvent>? _statusSubscription;
   Timer? _heartbeatTimer;
-  Function()? onStateChanged;
 
   Future<void> initialize() async {
     FirebaseDatabase.instance.setLoggingEnabled(true);
@@ -48,6 +50,7 @@ class AppStateManager {
     
     _glovePluginPermission();
     _startGloveStream();
+    _startStatusStream();
     _startHeartbeatWatchdog();
 
     try {
@@ -84,7 +87,27 @@ class AppStateManager {
         triggerSOS(source: "Closed Fingers");
       }
       
-      onStateChanged?.call();
+      notifyListeners();
+    });
+  }
+
+  void _startStatusStream() {
+    _statusSubscription?.cancel();
+    _statusSubscription = _statusRef.onValue.listen((event) {
+      final data = event.snapshot.value as Map?;
+      if (data == null) return;
+
+      final bool online = data['is_online'] ?? false;
+      final dynamic hb = data['heartbeat'];
+      if (hb != null) {
+        // Use local arrival time to avoid clock desync issues
+        lastHeartbeat = DateTime.now().millisecondsSinceEpoch;
+      }
+      
+      if (isGloveConnected != online) {
+        isGloveConnected = online;
+        notifyListeners();
+      }
     });
   }
 
@@ -96,12 +119,13 @@ class AppStateManager {
   }
 
   void _updateConnectionStatus() {
+    // If no heartbeat received for 10sec, turn is_online: false locally
     final now = DateTime.now().millisecondsSinceEpoch;
-    final bool currentlyConnected = (now - lastHeartbeat) < 12000;
+    final bool heartbeatPulse = (now - lastHeartbeat) < 10000;
     
-    if (isGloveConnected != currentlyConnected) {
-      isGloveConnected = currentlyConnected;
-      onStateChanged?.call();
+    if (!heartbeatPulse && isGloveConnected) {
+       isGloveConnected = false;
+       notifyListeners();
     }
   }
 
@@ -155,7 +179,7 @@ class AppStateManager {
   Future<void> triggerSOS({required String source}) async {
     if (isSosActive) return;
     isSosActive = true;
-    onStateChanged?.call();
+    notifyListeners();
 
     try {
       _showNotification(title: "SOS EMERGENCY", body: "Patient triggered SOS from $source!", isHighPriority: true);
@@ -173,7 +197,7 @@ class AppStateManager {
   Future<void> stopSOS() async {
     if (!isSosActive) return;
     isSosActive = false;
-    onStateChanged?.call();
+    notifyListeners();
     
     await _audioPlayer.stop();
     await _audioPlayer.setReleaseMode(ap.ReleaseMode.release);
@@ -207,7 +231,9 @@ class AppStateManager {
 
   void dispose() {
     _gloveSubscription?.cancel();
+    _statusSubscription?.cancel();
     _heartbeatTimer?.cancel();
     _audioPlayer.dispose();
+    super.dispose();
   }
 }

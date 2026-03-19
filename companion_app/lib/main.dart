@@ -113,34 +113,33 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   ];
 
   @override
-  void initState() {
-    super.initState();
-    state.onStateChanged = () { if (mounted) setState(() {}); };
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Scaffold(
-          body: _pages[_selectedIndex],
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _selectedIndex,
-            type: BottomNavigationBarType.fixed,
-            selectedItemColor: const Color(0xFF2979FF),
-            unselectedItemColor: Colors.grey,
-            onTap: (index) => setState(() => _selectedIndex = index),
-            items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), label: 'Status'),
-              BottomNavigationBarItem(icon: Icon(Icons.fingerprint), label: 'Default'),
-              BottomNavigationBarItem(icon: Icon(Icons.gesture_outlined), label: 'Custom'),
-              BottomNavigationBarItem(icon: Icon(Icons.history_outlined), label: 'History'),
-              BottomNavigationBarItem(icon: Icon(Icons.info_outline), label: 'About'),
-            ],
-          ),
-        ),
-        if (state.isSosActive) _buildSosOverlay(),
-      ],
+    return ListenableBuilder(
+      listenable: state,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            Scaffold(
+              body: _pages[_selectedIndex],
+              bottomNavigationBar: BottomNavigationBar(
+                currentIndex: _selectedIndex,
+                type: BottomNavigationBarType.fixed,
+                selectedItemColor: const Color(0xFF2979FF),
+                unselectedItemColor: Colors.grey,
+                onTap: (index) => setState(() => _selectedIndex = index),
+                items: const [
+                  BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), label: 'Status'),
+                  BottomNavigationBarItem(icon: Icon(Icons.fingerprint), label: 'Default'),
+                  BottomNavigationBarItem(icon: Icon(Icons.gesture_outlined), label: 'Custom'),
+                  BottomNavigationBarItem(icon: Icon(Icons.history_outlined), label: 'History'),
+                  BottomNavigationBarItem(icon: Icon(Icons.info_outline), label: 'About'),
+                ],
+              ),
+            ),
+            if (state.isSosActive) _buildSosOverlay(),
+          ],
+        );
+      },
     );
   }
 
