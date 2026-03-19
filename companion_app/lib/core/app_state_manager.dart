@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:audioplayers/audioplayers.dart' as ap;
 import 'package:vibration/vibration.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -10,7 +10,7 @@ class AppStateManager {
   factory AppStateManager() => _instance;
   AppStateManager._internal();
 
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  final ap.AudioPlayer _audioPlayer = ap.AudioPlayer();
   final DatabaseReference _gloveRef = FirebaseDatabase.instance.ref('realtime/glove_01');
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
@@ -35,6 +35,9 @@ class AppStateManager {
 
     final prefs = await SharedPreferences.getInstance();
     isDeveloperMode = prefs.getBool('dev_mode') ?? false;
+
+    // Set default volume to 70%
+    await _audioPlayer.setVolume(0.7);
 
     const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
     const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
@@ -156,8 +159,9 @@ class AppStateManager {
 
     try {
       _showNotification(title: "SOS EMERGENCY", body: "Patient triggered SOS from $source!", isHighPriority: true);
-      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
-      await _audioPlayer.play(AssetSource('alert.mp3'));
+      await _audioPlayer.setVolume(0.7);
+      await _audioPlayer.setReleaseMode(ap.ReleaseMode.loop);
+      await _audioPlayer.play(ap.AssetSource('alert.mp3'));
       if (await Vibration.hasVibrator() == true) {
         Vibration.vibrate(pattern: [500, 1000, 500, 1000], repeat: 0);
       }
@@ -172,10 +176,20 @@ class AppStateManager {
     onStateChanged?.call();
     
     await _audioPlayer.stop();
+    await _audioPlayer.setReleaseMode(ap.ReleaseMode.release);
     Vibration.cancel();
     
     if (!isDeveloperMode) {
        _gloveRef.update({'active_gesture': 'None'});
+    }
+  }
+
+  Future<void> playIntro() async {
+    try {
+      await _audioPlayer.setVolume(0.7);
+      await _audioPlayer.play(ap.AssetSource('intro.mp3'));
+    } catch (e) {
+      print("DEBUG: Intro Audio Error: $e");
     }
   }
 

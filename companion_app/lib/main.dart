@@ -49,7 +49,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   Future<void> _startApp() async {
     final state = AppStateManager();
-    state.initialize(); // Init state
+    await state.initialize(); // Init state
+    await state.playIntro(); // Play intro audio
 
     await Future.delayed(const Duration(milliseconds: 3000));
     
