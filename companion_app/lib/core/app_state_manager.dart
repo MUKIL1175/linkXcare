@@ -68,6 +68,7 @@ class AppStateManager {
       
       if (currentGesture != newGesture && newGesture != "None") {
         _showNotification(title: "Live Gesture Detected", body: "Message: $newGesture");
+        logGesture(newGesture);
       }
       
       currentGesture = newGesture;
@@ -176,6 +177,18 @@ class AppStateManager {
     if (!isDeveloperMode) {
        _gloveRef.update({'active_gesture': 'None'});
     }
+  }
+
+  Future<void> logGesture(String message) async {
+    final String path = isDeveloperMode ? 'logs/dev_history/glove_01' : 'logs/real_history/glove_01';
+    final ref = FirebaseDatabase.instance.ref(path).push();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    
+    await ref.set({
+      'msg': message,
+      'time': now,
+      'source': isDeveloperMode ? 'Developer Simulation' : 'Physical Glove'
+    });
   }
 
   void dispose() {
