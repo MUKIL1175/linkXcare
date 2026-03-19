@@ -1,6 +1,11 @@
 # LinkXcare: Non-Verbal IoT Communication Glove
 
-**[🚀 Download Latest App (APK) Here](https://github.com/MUKIL1175/linkXcare/releases/latest)**
+<p align="center">
+  <a href="https://github.com/MUKIL1175/linkXcare/raw/main/app-release.apk">
+    <img src="https://img.shields.io/badge/Download-APK-2E7D32?style=for-the-badge&logo=android&logoColor=white" alt="Download APK">
+  </a>
+</p>
+
 
 **LinkXcare** is a mission-critical IoT medical companion system designed to provide non-verbal communication for patients with speech or motor impairments. It bridges the gap between patients and caregivers by translating finger gestures into real-time notifications, local OLED status, and high-priority emergency alerts.
 
