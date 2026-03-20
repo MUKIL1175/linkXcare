@@ -104,15 +104,22 @@ class AppStateManager extends ChangeNotifier {
         lastHeartbeat = hb;
       }
       
-      // 4. Update Connection Status (Support both Boolean and Timestamp Heatbeats)
+      // 4. Update Connection Status (Support both Boolean, Timestamp, and String Heartbeats)
       final dynamic onlineRaw = data['is_online'];
       if (onlineRaw is num) {
-        // If it's a timestamp (seconds), sync our local heartbeat
-        lastHeartbeat = (onlineRaw.toDouble() * 1000).toInt();
+        // MicroPython time.time() starts from year 2000.
+        // Dart DateTime starts from year 1970.
+        // Offset = 946684800 seconds (or 946684800000 milliseconds).
+        lastHeartbeat = (onlineRaw.toDouble() * 1000).toInt() + 946684800000;
+      } else if (onlineRaw is String) {
+        final parsed = _parseCustomTime(onlineRaw);
+        if (parsed != null) {
+          lastHeartbeat = parsed.millisecondsSinceEpoch;
+        }
       }
       
       final now = DateTime.now().millisecondsSinceEpoch;
-      final bool pulse = (now - lastHeartbeat) < 15000;
+      final bool pulse = (now - lastHeartbeat).abs() < 15000; // Use .abs() to handle slight clock drift
 
       if (isGloveConnected != pulse) {
         isGloveConnected = pulse;
@@ -162,7 +169,7 @@ class AppStateManager extends ChangeNotifier {
   void _updateConnectionStatus() {
     // Universal Server Timestamp Strategy: compare milliseconds
     final now = DateTime.now().millisecondsSinceEpoch;
-    final bool heartbeatPulse = (now - lastHeartbeat) < 15000; // 15s buffer for server/local delta
+    final bool heartbeatPulse = (now - lastHeartbeat).abs() < 15000; // 15s buffer for server/local delta
     
     // Watchdog: If heartbeat is dead, force Firebase to false
     if (!heartbeatPulse && isGloveConnected) {
@@ -279,6 +286,38 @@ class AppStateManager extends ChangeNotifier {
       'time': now,
       'source': isDeveloperMode ? 'Developer Simulation' : 'Physical Glove'
     });
+  }
+
+  DateTime? _parseCustomTime(String value) {
+    try {
+      // Format: 20-mar-26/5:57pm
+      final parts = value.split('/');
+      if (parts.length != 2) return null;
+      
+      final dateParts = parts[0].split('-');
+      if (dateParts.length != 3) return null;
+      
+      final day = int.parse(dateParts[0]);
+      final monthStr = dateParts[1].toLowerCase();
+      final year = int.parse("20${dateParts[2]}");
+      
+      final months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+      final month = months.indexOf(monthStr) + 1;
+      
+      final timePart = parts[1];
+      final isPm = timePart.toLowerCase().endsWith('pm');
+      final cleanTime = timePart.replaceAll('am', '').replaceAll('pm', '');
+      final timeParts = cleanTime.split(':');
+      int hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+      
+      if (isPm && hour < 12) hour += 12;
+      if (!isPm && hour == 12) hour = 0;
+      
+      return DateTime(year, month, day, hour, minute);
+    } catch (e) {
+      return null;
+    }
   }
 
   void dispose() {
