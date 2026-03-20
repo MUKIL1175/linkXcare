@@ -1,188 +1,263 @@
-import machine, ssd1306, time, network, urequests, json, os, gc, esp, ntptime
+import machine
+import time
+import network
+import urequests
+import gc
 
-esp.osdebug(None)
+try:
+    import ujson as json
+except:
+    import json
 
-# --- CONFIG ---
-WIFI_SSID = "abc123"
+# -----------------------------
+# CONFIG
+# -----------------------------
+WIFI_SSID = "glove"
 WIFI_PASS = "12345678"
-DB_URL = "https://finalyear-1df2d-default-rtdb.firebaseio.com"
-GLOVE_ID = "glove_01"
 
-# --- HARDWARE ---
-i2c = machine.I2C(0, scl=machine.Pin(9), sda=machine.Pin(8))
+BASE_URL = "https://finalyear-1df2d-default-rtdb.firebaseio.com"
+
+DEVICE = "glove_01"
+
+CAL_MIN_URL = BASE_URL + "/devices/{}/calibration/min.json".format(DEVICE)
+CAL_MAX_URL = BASE_URL + "/devices/{}/calibration/max.json".format(DEVICE)
+CAL_TIME_URL = BASE_URL + "/devices/{}/calibration/updated_at.json".format(DEVICE)
+
+FSR_URL = BASE_URL + "/realtime/{}/fsr.json".format(DEVICE)
+ONLINE_URL = BASE_URL + "/realtime/{}/is_online.json".format(DEVICE)
+
+GESTURE_URL = BASE_URL + "/default_gestures.json"
+
+LOCAL_FILE = "local_data.json"
+
+adc_pins = [0,1,2,3,4]
+
+# -----------------------------
+# OLED
+# -----------------------------
+import ssd1306
+i2c = machine.I2C(0, sda=machine.Pin(8), scl=machine.Pin(9))
 oled = ssd1306.SSD1306_I2C(128, 64, i2c)
-btn = machine.Pin(5, machine.Pin.IN, machine.Pin.PULL_UP)
 
-sensors = [machine.ADC(machine.Pin(p)) for p in [3, 2, 0, 1, 4]]
+def show(text):
+    oled.fill(0)
+    oled.text(text[:16], 0, 20)
+    oled.show()
+
+# -----------------------------
+# BUTTON (for calibration)
+# -----------------------------
+button = machine.Pin(10, machine.Pin.IN, machine.Pin.PULL_UP)
+
+# -----------------------------
+# ADC
+# -----------------------------
+sensors = [machine.ADC(machine.Pin(p)) for p in adc_pins]
 for s in sensors:
-    s.atten(machine.ADC.ATTN_11DB)
-
-# --- STORAGE ---
-CAL_FILE = "calibration.json"
-MSG_FILE = "gestures.json"
-
-min_v = [2000]*5
-max_v = [3500]*5
-
-local_msgs = {
-    "thumb": "Water", "index": "Help", "middle": "Food",
-    "ring": "Meds", "pinky": "Restroom", "closed": "Emergency"
-}
-
-# --- WIFI ---
-wlan = network.WLAN(network.STA_IF)
-wlan.active(True)
-
-last_wifi_attempt = 0
-wifi_fail_count = 0
-
-# --- OLED ---
-def update_oled(t1, t2="", status="OFF"):
     try:
-        oled.fill(0)
-        oled.text("LinkXcare", 20, 0)
-        oled.hline(0, 12, 128, 1)
-        oled.text(status[0], 118, 2)
-        oled.text(t1[:16], 0, 28)
-        oled.text(t2[:16], 0, 48)
-        oled.show()
+        s.atten(machine.ADC.ATTN_11DB)
     except:
         pass
 
-# --- SAFE WIFI MANAGER ---
-def handle_wifi():
-    global last_wifi_attempt, wifi_fail_count
+# -----------------------------
+# TIME FORMAT
+# -----------------------------
+months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"]
 
-    if wlan.isconnected():
-        wifi_fail_count = 0
-        try:
-            ntptime.settime()
-        except:
-            pass
-        return True
+def get_time_str():
+    t = time.localtime()
+    h = t[3]
+    m = t[4]
 
-    now = time.ticks_ms()
+    suffix = "am"
+    if h >= 12:
+        suffix = "pm"
+    if h > 12:
+        h -= 12
 
-    # wait 10 seconds between attempts
-    if time.ticks_diff(now, last_wifi_attempt) < 10000:
-        return False
+    m_str = "0"+str(m) if m < 10 else str(m)
 
-    last_wifi_attempt = now
+    return "{}-{}-{}/{}:{}{}".format(
+        t[2], months[t[1]-1], str(t[0])[2:], h, m_str, suffix
+    )
 
-    try:
-        print("WiFi retry...")
+# -----------------------------
+# WIFI CONNECT
+# -----------------------------
+def connect_wifi():
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    wlan.connect(WIFI_SSID, WIFI_PASS)
 
-        # HARD RESET ONLY AFTER MULTIPLE FAILS
-        if wifi_fail_count >= 3:
-            print("Resetting WiFi module...")
-            wlan.active(False)
-            time.sleep(2)
-            wlan.active(True)
-            time.sleep(2)
-            wifi_fail_count = 0
+    show("Connecting WiFi")
 
-        wlan.connect(WIFI_SSID, WIFI_PASS)
-        wifi_fail_count += 1
+    for _ in range(10):
+        if wlan.isconnected():
+            print("WiFi Connected")
+            show("WiFi OK")
+            return True
+        time.sleep(1)
 
-    except Exception as e:
-        print("WiFi crash:", e)
-        wifi_fail_count += 1
-
+    print("WiFi Failed")
+    show("Offline Mode")
     return False
 
-# --- LOAD FILES ---
-def load_json(f):
+# -----------------------------
+# READ SENSORS
+# -----------------------------
+def read_all():
+    vals = [0]*5
+    for _ in range(10):
+        for i,s in enumerate(sensors):
+            vals[i] += s.read()
+        time.sleep_ms(5)
+    return [v//10 for v in vals]
+
+def get_percent(raw, min_v, max_v):
+    if max_v == min_v:
+        return 0
+    if max_v > min_v:
+        p = (raw - min_v)*100/(max_v-min_v)
+    else:
+        p = (min_v - raw)*100/(min_v-max_v)
+
+    if p < 0: p = 0
+    if p > 100: p = 100
+    return int(p)
+
+# -----------------------------
+# LOCAL STORAGE
+# -----------------------------
+def save_local(data):
+    with open(LOCAL_FILE, "w") as f:
+        json.dump(data, f)
+
+def load_local():
     try:
-        if f in os.listdir():
-            with open(f) as file:
-                return json.load(file)
+        with open(LOCAL_FILE) as f:
+            return json.load(f)
+    except:
+        return None
+
+# -----------------------------
+# FIREBASE FUNCTIONS
+# -----------------------------
+def get_json(url):
+    try:
+        return urequests.get(url).json()
+    except:
+        return None
+
+def put_json(url, data):
+    try:
+        urequests.put(url, json=data)
     except:
         pass
-    return None
 
-cal = load_json(CAL_FILE)
-if cal:
-    min_v, max_v = cal["min"], cal["max"]
+# -----------------------------
+# LOAD DATA
+# -----------------------------
+def load_data(online):
+    if online:
+        min_vals = get_json(CAL_MIN_URL)
+        max_vals = get_json(CAL_MAX_URL)
+        gestures = get_json(GESTURE_URL)
 
-msg = load_json(MSG_FILE)
-if msg:
-    local_msgs = msg
+        if min_vals and max_vals and gestures:
+            save_local({
+                "min": min_vals,
+                "max": max_vals,
+                "gestures": gestures
+            })
+            return min_vals, max_vals, gestures
 
-# --- START ---
-update_oled("Booting...", GLOVE_ID)
-time.sleep(1)
-update_oled("READY", GLOVE_ID)
+    # fallback
+    data = load_local()
+    return data["min"], data["max"], data["gestures"]
 
-# --- INITIAL STATUS ---
-def set_online():
-    if wlan.isconnected():
-        try:
-            r = urequests.patch(DB_URL + "/devices/" + GLOVE_ID + "/status.json",
-                                data=json.dumps({"is_online": True}))
-            r.close()
-        except:
-            pass
+# -----------------------------
+# CHECK CALIB BUTTON
+# -----------------------------
+def check_calibration():
+    if button.value() == 0:
+        show("Calibrating...")
+        time.sleep(1)
+        import calibration   # your calibration.py
+        machine.reset()
 
-set_online()
+# -----------------------------
+# MAIN
+# -----------------------------
+online = connect_wifi()
 
-# --- LOOP ---
-last_sync = 0
+min_vals, max_vals, gestures = load_data(online)
+
+last_online_update = 0
 
 while True:
     gc.collect()
 
-    # --- WIFI ---
-    handle_wifi()
+    check_calibration()
 
-    # --- SENSOR ---
-    states = []
-    percents = []
+    raw = read_all()
+    perc = []
 
     for i in range(5):
-        raw = sensors[i].read()
-        denom = max(1, max_v[i] - min_v[i])
-        p = int((raw - min_v[i]) * 100 / denom)
-        p = max(0, min(100, p))
+        perc.append(get_percent(raw[i], min_vals[i], max_vals[i]))
 
-        percents.append(p)
-        states.append(1 if p > 75 else 0)
-
-    total = sum(states)
-
-    key = "None"
-    if total == 5:
-        key = "closed"
-    elif total == 1:
+    # -------------------------
+    # SEND TO FIREBASE
+    # -------------------------
+    if online:
         try:
-            key = ["thumb","index","middle","ring","pinky"][states.index(1)]
+            import ntptime
+            print("Syncing time...")
+            ntptime.settime()
+            print("Time synced")
         except:
-            pass
+            print("NTP Failed")
 
-    msg = local_msgs.get(key, "Ready")
+        put_json(FSR_URL, {str(i): perc[i] for i in range(5)})
 
-    update_oled(msg, "", "ON" if wlan.isconnected() else "OFF")
+        if time.time() - last_online_update > 5:
+            # Send UNIX Timestamp (integer) as the heartbeat
+            put_json(ONLINE_URL, time.time())
+            last_online_update = time.time()
 
-    # --- SEND DATA ---
-    if wlan.isconnected() and time.ticks_ms() - last_sync > 5000:
-        try:
-            print("Sending...")
+        # refresh gestures dynamically
+        new_gestures = get_json(GESTURE_URL)
+        if new_gestures:
+            gestures = new_gestures
+            save_local({
+                "min": min_vals,
+                "max": max_vals,
+                "gestures": gestures
+            })
 
-            payload = {
-                "fsr": percents,
-                "active_gesture": msg,
-                "heartbeat": {".sv": "timestamp"},
-                "is_online": True
-            }
+    # -------------------------
+    # GESTURE DETECTION
+    # -------------------------
+    detected = "None"
 
-            r = urequests.patch(DB_URL + "/realtime/" + GLOVE_ID + ".json",
-                                data=json.dumps(payload))
-            r.close()
-            del r
+    for name, pattern in gestures.items():
+        match = True
+        for i in range(5):
+            if pattern[i] == 1 and perc[i] < 75:
+                match = False
+        if match:
+            detected = name
+            break
 
-            last_sync = time.ticks_ms()
+    # -------------------------
+    # OLED DISPLAY
+    # -------------------------
+    oled.fill(0)
+    oled.text("Gesture:", 0, 0)
+    oled.text(detected[:12], 0, 15)
 
-        except Exception as e:
-            print("HTTP error:", e)
-            last_sync = time.ticks_ms()
+    for i in range(5):
+        oled.text(str(perc[i]), 0, 30+i*8)
+
+    oled.show()
 
     time.sleep(0.2)

@@ -104,14 +104,18 @@ class AppStateManager extends ChangeNotifier {
         lastHeartbeat = hb;
       }
       
-      // 4. Update Connection Status
-      final bool online = data['is_online'] ?? false;
-      if (isGloveConnected != online) {
-        isGloveConnected = online;
-        if (online) {
-          // Grace period for manual or newly detected connections
-          lastHeartbeat = DateTime.now().millisecondsSinceEpoch;
-        }
+      // 4. Update Connection Status (Support both Boolean and Timestamp Heatbeats)
+      final dynamic onlineRaw = data['is_online'];
+      if (onlineRaw is num) {
+        // If it's a timestamp (seconds), sync our local heartbeat
+        lastHeartbeat = (onlineRaw.toDouble() * 1000).toInt();
+      }
+      
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final bool pulse = (now - lastHeartbeat) < 15000;
+
+      if (isGloveConnected != pulse) {
+        isGloveConnected = pulse;
       }
       
       // 5. Reactive Events (Notifications, Logic)
