@@ -158,7 +158,7 @@ class AppStateManager extends ChangeNotifier {
   void _updateConnectionStatus() {
     // Universal Server Timestamp Strategy: compare milliseconds
     final now = DateTime.now().millisecondsSinceEpoch;
-    final bool heartbeatPulse = (now - lastHeartbeat) < 20000; // 20s buffer for server/local delta
+    final bool heartbeatPulse = (now - lastHeartbeat) < 15000; // 15s buffer for server/local delta
     
     // Watchdog: If heartbeat is dead, force Firebase to false
     if (!heartbeatPulse && isGloveConnected) {
