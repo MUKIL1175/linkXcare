@@ -11,9 +11,10 @@ The LinkXcare Companion app has been upgraded with the new "Anti-Gravity" techni
 - **Technical Overhaul**:
     - Updated project to use **Gradle 8.10.2**, matching the modern AGP 8.5.0 and Kotlin 2.1.0 requirements.
     - Enabled **Core Library Desugaring** (version 2.1.4) to support `flutter_local_notifications` and Java 8+ features on older Android versions.
-- **Heartbeat & Connectivity Watchdog**:
-    - Implemented real-time heartbeat monitoring (12s threshold).
-    - Added automatic "Glove Not Connected" UI feedback and "Soft-Offline" state (grayed out telemetry) when hardware is disconnected and Dev Mode is OFF.
+- **Server Timestamp Heartbeat**:
+    - Switched to **Firebase Server Timestamps** (`{".sv": "timestamp"}`) for heartbeats.
+    - This eliminates dependencies on the ESP32's internal clock or NTP sync.
+    - The App now monitors the 15-second window with millisecond precision against the server's time.
 - **Firebase Alignment**:
     - Verified connectivity to the updated Firebase structure (`realtime/glove_01`, `logs/glove_01`).
     - Implemented high-priority SOS overlay with glassmorphism and looping alarm triggers.

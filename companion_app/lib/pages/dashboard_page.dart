@@ -59,29 +59,39 @@ class DashboardPage extends StatelessWidget {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween, 
                                 children: [
                                   const Text("System Status", style: TextStyle(fontSize: 16, color: Colors.white70)), 
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 12, height: 12, 
-                                        decoration: BoxDecoration(
-                                          color: (state.isGloveConnected || state.isDeveloperMode) ? Colors.greenAccent : Colors.white24, 
-                                          shape: BoxShape.circle, 
-                                          boxShadow: (state.isGloveConnected || state.isDeveloperMode) 
-                                            ? [BoxShadow(color: Colors.greenAccent.withOpacity(0.5), blurRadius: 8)]
-                                            : []
-                                        )
-                                      ), 
-                                      const SizedBox(width: 8), 
-                                      Text(
-                                        (state.isGloveConnected || state.isDeveloperMode) ? "glove is online" : "glove is offline", 
-                                        style: TextStyle(
-                                          color: (state.isGloveConnected || state.isDeveloperMode) ? Colors.greenAccent : Colors.white24, 
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                        )
-                                      )
-                                    ]
-                                  )
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: (state.isGloveConnected || state.isDeveloperMode) ? Colors.greenAccent.withOpacity(0.1) : Colors.redAccent.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: (state.isGloveConnected || state.isDeveloperMode) ? Colors.greenAccent.withOpacity(0.5) : Colors.redAccent.withOpacity(0.5)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 8, height: 8,
+                                          decoration: BoxDecoration(
+                                            color: (state.isGloveConnected || state.isDeveloperMode) ? Colors.greenAccent : Colors.redAccent,
+                                            shape: BoxShape.circle,
+                                            boxShadow: (state.isGloveConnected || state.isDeveloperMode) 
+                                              ? [BoxShadow(color: Colors.greenAccent.withOpacity(0.8), blurRadius: 6)] 
+                                              : [],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          (state.isGloveConnected || state.isDeveloperMode) ? "LIVE" : "OFFLINE",
+                                          style: TextStyle(
+                                            color: (state.isGloveConnected || state.isDeveloperMode) ? Colors.greenAccent : Colors.redAccent, 
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            letterSpacing: 1.1,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ]
                               ),
                             ],

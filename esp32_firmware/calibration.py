@@ -1,92 +1,203 @@
-from machine import ADC, Pin, I2C
-import ssd1306
+# import machine
+# import time
+# 
+# try:
+#     import ujson as json
+# except:
+#     import json
+# 
+# # -----------------------------
+# # CONFIG
+# # -----------------------------
+# adc_pins = [0, 1, 2, 3, 4]
+# CAL_FILE = "calib.json"
+# 
+# # -----------------------------
+# # ADC SETUP
+# # -----------------------------
+# sensors = [machine.ADC(machine.Pin(p)) for p in adc_pins]
+# 
+# for s in sensors:
+#     try:
+#         s.atten(machine.ADC.ATTN_11DB)
+#     except:
+#         pass
+# 
+# # -----------------------------
+# # HELPERS
+# # -----------------------------
+# def read_all(samples=20, delay_ms=5):
+#     vals = [0]*5
+#     for _ in range(samples):
+#         for i, s in enumerate(sensors):
+#             vals[i] += s.read()
+#         time.sleep_ms(delay_ms)
+#     return [v // samples for v in vals]
+# 
+# def save_cal(min_vals, max_vals):
+#     try:
+#         with open(CAL_FILE, "w") as f:
+#             json.dump({"min": min_vals, "max": max_vals}, f)
+#         print("Saved calibration")
+#     except Exception as e:
+#         print("Save error:", e)
+# 
+# # -----------------------------
+# # CALIBRATION ONLY
+# # -----------------------------
+# print("\n=== AUTO CALIBRATION START ===")
+# 
+# print(" Keep your hand STRAIGHT")
+# for i in range(3, 0, -1):
+#     print("Capturing in", i, "...")
+#     time.sleep(1)
+# 
+# min_vals = read_all()
+# print("Min (straight):", min_vals)
+# 
+# print("\n Now BEND all fingers")
+# for i in range(3, 0, -1):
+#     print("Capturing in", i, "...")
+#     time.sleep(1)
+# 
+# max_vals = read_all()
+# print("Max (bent):", max_vals)
+# 
+# save_cal(min_vals, max_vals)
+# 
+# print("\n--- COPY THIS ---")
+# print("min =", min_vals)
+# print("max =", max_vals)
+# 
+# print("\n Calibration complete. Program stopped.")
+
+
+import machine
 import time
+import network
 
-# ---------- OLED Setup ----------
-i2c = I2C(0, scl=Pin(9), sda=Pin(8))
-oled = ssd1306.SSD1306_I2C(128, 64, i2c)
+try:
+    import ujson as json
+except:
+    import json
 
-# ---------- Flex Sensor ADC Pins ----------
-pins = [3,2,0,1,4]
-adcs = []
+try:
+    import urequests as requests
+except:
+    import requests
 
-for p in pins:
-    adc = ADC(Pin(p))
-    adc.atten(ADC.ATTN_11DB)
-    adcs.append(adc)
+# -----------------------------
+# WIFI CONFIG
+# -----------------------------
+SSID = "glove"
+PASSWORD = "12345678"
 
-min_vals = [0]*5
-max_vals = [0]*5
+# -----------------------------
+# FIREBASE URLS
+# -----------------------------
+URL_MIN = "https://finalyear-1df2d-default-rtdb.firebaseio.com/devices/glove_01/calibration/min.json"
+URL_MAX = "https://finalyear-1df2d-default-rtdb.firebaseio.com/devices/glove_01/calibration/max.json"
 
+# -----------------------------
+# ADC CONFIG
+# -----------------------------
+adc_pins = [0, 1, 2, 3, 4]
+CAL_FILE = "calib.json"
 
-#---------- STEP 1 : STRAIGHT ----------
-oled.fill(0)
-oled.text("Keep Fingers", 10, 20)
-oled.text("STRAIGHT", 30, 35)
-oled.show()
+# -----------------------------
+# WIFI CONNECT
+# -----------------------------
+def connect_wifi():
+    wifi = network.WLAN(network.STA_IF)
+    wifi.active(True)
 
-print("Keep fingers straight")
-time.sleep(5)
+    if not wifi.isconnected():
+        print("Connecting to WiFi...")
+        wifi.connect(SSID, PASSWORD)
 
-for i in range(5):
-    min_vals[i] = adcs[i].read()
+        while not wifi.isconnected():
+            time.sleep(1)
+            print("...")
 
-print("Min values:", min_vals)
+    print(" WiFi Connected:", wifi.ifconfig())
 
+# -----------------------------
+# ADC SETUP
+# -----------------------------
+sensors = [machine.ADC(machine.Pin(p)) for p in adc_pins]
 
-# ---------- STEP 2 : BEND ----------
-oled.fill(0)
-oled.text("Bend Fingers", 10, 20)
-oled.text("FULLY", 40, 35)
-oled.show()
+for s in sensors:
+    try:
+        s.atten(machine.ADC.ATTN_11DB)
+    except:
+        pass
 
-print("Bend fingers fully")
-time.sleep(5)
+# -----------------------------
+# HELPERS
+# -----------------------------
+def read_all(samples=20, delay_ms=5):
+    vals = [0]*5
+    for _ in range(samples):
+        for i, s in enumerate(sensors):
+            vals[i] += s.read()
+        time.sleep_ms(delay_ms)
+    return [v // samples for v in vals]
 
-for i in range(5):
-    max_vals[i] = adcs[i].read()
+def save_cal(min_vals, max_vals):
+    try:
+        with open(CAL_FILE, "w") as f:
+            json.dump({"min": min_vals, "max": max_vals}, f)
+        print("💾 Saved locally")
+    except Exception as e:
+        print("Save error:", e)
 
-print("Max values:", max_vals)
+def send_to_firebase(min_vals, max_vals):
+    try:
+        print("Uploading to Firebase...")
 
-oled.fill(0)
-oled.text("Calibration", 20, 25)
-oled.text("Done!", 40, 40)
-oled.show()
+        r1 = requests.put(URL_MIN, json=min_vals)
+        r1.close()
 
-time.sleep(2)
+        r2 = requests.put(URL_MAX, json=max_vals)
+        r2.close()
 
+        print(" Uploaded to Firebase")
 
-# ---------- MAIN LOOP ----------
-while True:
+    except Exception as e:
+        print(" Firebase Error:", e)
 
-    values = []
-    percent = []
+# -----------------------------
+# START
+# -----------------------------
+connect_wifi()
 
-    for i in range(5):
+print("\n=== AUTO CALIBRATION START ===")
 
-        val = adcs[i].read()
-        values.append(val)
+print(" Keep your hand STRAIGHT")
+for i in range(3, 0, -1):
+    print("Capturing in", i, "...")
+    time.sleep(1)
 
-        # map value to percentage
-        bend = (val - min_vals[i]) / (max_vals[i] - min_vals[i]) * 100
-        bend = max(0, min(100, bend))
+min_vals = read_all()
+print("Min (straight):", min_vals)
 
-        percent.append(int(bend))
+print("\n Now BEND all fingers")
+for i in range(3, 0, -1):
+    print("Capturing in", i, "...")
+    time.sleep(1)
 
+max_vals = read_all()
+print("Max (bent):", max_vals)
 
-    print("Raw:", values)
-    print("Bend %:", percent)
+# -----------------------------
+# SAVE + UPLOAD
+# -----------------------------
+save_cal(min_vals, max_vals)
 
-    # OLED Display
-    oled.fill(0)
-    oled.text("Flex %", 40, 0)
+print("\n--- COPY THIS ---")
+print("min =", min_vals)
+print("max =", max_vals)
 
-    oled.text("F1: {}".format(percent[0]), 0, 15)
-    oled.text("F2: {}".format(percent[1]), 0, 25)
-    oled.text("F3: {}".format(percent[2]), 0, 35)
-    oled.text("F4: {}".format(percent[3]), 0, 45)
-    oled.text("F5: {}".format(percent[4]), 0, 55)
+send_to_firebase(min_vals, max_vals)
 
-    oled.show()
-
-    time.sleep(0.5)
+print("\n Calibration complete. Program stopped.")

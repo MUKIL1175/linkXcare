@@ -1,4 +1,4 @@
-import machine, ssd1306, time, network, urequests, json, os, gc, esp
+import machine, ssd1306, time, network, urequests, json, os, gc, esp, ntptime
 
 esp.osdebug(None)
 
@@ -55,6 +55,10 @@ def handle_wifi():
 
     if wlan.isconnected():
         wifi_fail_count = 0
+        try:
+            ntptime.settime()
+        except:
+            pass
         return True
 
     now = time.ticks_ms()
@@ -109,6 +113,18 @@ update_oled("Booting...", GLOVE_ID)
 time.sleep(1)
 update_oled("READY", GLOVE_ID)
 
+# --- INITIAL STATUS ---
+def set_online():
+    if wlan.isconnected():
+        try:
+            r = urequests.patch(DB_URL + "/devices/" + GLOVE_ID + "/status.json",
+                                data=json.dumps({"is_online": True}))
+            r.close()
+        except:
+            pass
+
+set_online()
+
 # --- LOOP ---
 last_sync = 0
 
@@ -153,7 +169,9 @@ while True:
 
             payload = {
                 "fsr": percents,
-                "gesture": msg
+                "active_gesture": msg,
+                "heartbeat": {".sv": "timestamp"},
+                "is_online": True
             }
 
             r = urequests.patch(DB_URL + "/realtime/" + GLOVE_ID + ".json",

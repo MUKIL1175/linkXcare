@@ -13,7 +13,6 @@ class AppStateManager extends ChangeNotifier {
 
   final ap.AudioPlayer _audioPlayer = ap.AudioPlayer();
   final DatabaseReference _gloveRef = FirebaseDatabase.instance.ref('realtime/glove_01');
-  final DatabaseReference _statusRef = FirebaseDatabase.instance.ref('devices/glove_01/status');
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
   bool isSosActive = false;
@@ -22,9 +21,10 @@ class AppStateManager extends ChangeNotifier {
   List<int> fsrValues = [0, 0, 0, 0, 0];
   int lastHeartbeat = 0;
   bool isGloveConnected = false;
+  Map<String, dynamic> _customGestures = {};
   
   StreamSubscription<DatabaseEvent>? _gloveSubscription;
-  StreamSubscription<DatabaseEvent>? _statusSubscription;
+  StreamSubscription<DatabaseEvent>? _customSubscription;
   Timer? _heartbeatTimer;
 
   Future<void> initialize() async {
@@ -48,9 +48,9 @@ class AppStateManager extends ChangeNotifier {
       onDidReceiveNotificationResponse: null,
     );
     
-    _glovePluginPermission();
+      _glovePluginPermission();
     _startGloveStream();
-    _startStatusStream();
+    _startCustomGesturesStream();
     _startHeartbeatWatchdog();
 
     try {
@@ -66,18 +66,61 @@ class AppStateManager extends ChangeNotifier {
       final data = event.snapshot.value as Map?;
       if (data == null) return;
       
-      final newGesture = data['active_gesture'] ?? "None";
+      // 1. Update Core Data
+      String resolvedGesture = (data['active_gesture'] ?? data['gesture']) ?? "None";
       fsrValues = List<int>.from(data['fsr'] ?? [0, 0, 0, 0, 0]);
-      lastHeartbeat = data['heartbeat'] ?? 0;
-      
-      _updateConnectionStatus();
-      
-      if (currentGesture != newGesture && newGesture != "None") {
-        _showNotification(title: "Live Gesture Detected", body: "Message: $newGesture");
-        logGesture(newGesture);
+
+      // 2. Custom & Default Gesture Resolution
+      if (resolvedGesture == "None" || resolvedGesture == "Ready") {
+        final currentFingerStates = fsrValues.map((v) => v > 75 ? 1 : 0).toList();
+        
+        // Check Custom Gestures First
+        bool foundCustom = false;
+        _customGestures.forEach((key, value) {
+          if (foundCustom) return;
+          if (value is Map) {
+            final ticks = List<int>.from(value['tickBoxes'] ?? []);
+            if (listEquals(ticks, currentFingerStates) && ticks.contains(1)) {
+              resolvedGesture = value['message'] ?? resolvedGesture;
+              foundCustom = true;
+            }
+          }
+        });
+
+        // Fallback to Single-Finger Defaults if no custom match
+        if (!foundCustom) {
+          for (int i = 0; i < fsrValues.length; i++) {
+            if (fsrValues[i] > 75) {
+              resolvedGesture = _getGestureForFinger(index: i);
+              break; 
+            }
+          }
+        }
       }
       
-      currentGesture = newGesture;
+      // 3. Update Heartbeat
+      final int hb = data['heartbeat'] ?? 0;
+      if (hb > 0) {
+        lastHeartbeat = hb;
+      }
+      
+      // 4. Update Connection Status
+      final bool online = data['is_online'] ?? false;
+      if (isGloveConnected != online) {
+        isGloveConnected = online;
+        if (online) {
+          // Grace period for manual or newly detected connections
+          lastHeartbeat = DateTime.now().millisecondsSinceEpoch;
+        }
+      }
+      
+      // 5. Reactive Events (Notifications, Logic)
+      if (currentGesture != resolvedGesture && resolvedGesture != "None" && resolvedGesture != "Ready") {
+        _showNotification(title: "Live Gesture Detected", body: "Message: $resolvedGesture");
+        logGesture(resolvedGesture);
+      }
+      
+      currentGesture = resolvedGesture;
       
       if (currentGesture.toUpperCase() == "EMERGENCY" && !isSosActive) {
         triggerSOS(source: "Glove");
@@ -87,25 +130,19 @@ class AppStateManager extends ChangeNotifier {
         triggerSOS(source: "Closed Fingers");
       }
       
+      // 6. Watchdog Correction (Sync back to Firebase if dead)
+      _updateConnectionStatus();
+
       notifyListeners();
     });
   }
 
-  void _startStatusStream() {
-    _statusSubscription?.cancel();
-    _statusSubscription = _statusRef.onValue.listen((event) {
-      final data = event.snapshot.value as Map?;
-      if (data == null) return;
-
-      final bool online = data['is_online'] ?? false;
-      final dynamic hb = data['heartbeat'];
-      if (hb != null) {
-        // Use local arrival time to avoid clock desync issues
-        lastHeartbeat = DateTime.now().millisecondsSinceEpoch;
-      }
-      
-      if (isGloveConnected != online) {
-        isGloveConnected = online;
+   void _startCustomGesturesStream() {
+    _customSubscription?.cancel();
+    _customSubscription = FirebaseDatabase.instance.ref('custom_gestures').onValue.listen((event) {
+      final data = event.snapshot.value;
+      if (data is Map) {
+        _customGestures = Map<String, dynamic>.from(data);
         notifyListeners();
       }
     });
@@ -119,13 +156,24 @@ class AppStateManager extends ChangeNotifier {
   }
 
   void _updateConnectionStatus() {
-    // If no heartbeat received for 10sec, turn is_online: false locally
+    // Universal Server Timestamp Strategy: compare milliseconds
     final now = DateTime.now().millisecondsSinceEpoch;
-    final bool heartbeatPulse = (now - lastHeartbeat) < 10000;
+    final bool heartbeatPulse = (now - lastHeartbeat) < 20000; // 20s buffer for server/local delta
     
+    // Watchdog: If heartbeat is dead, force Firebase to false
     if (!heartbeatPulse && isGloveConnected) {
-       isGloveConnected = false;
-       notifyListeners();
+       _gloveRef.update({'is_online': false}).catchError((e) => null);
+    }
+  }
+
+  String _getGestureForFinger({required int index}) {
+    switch (index) {
+      case 0: return "Need water";
+      case 1: return "Restroom";
+      case 2: return "Need food";
+      case 3: return "Need medicines";
+      case 4: return "Need assistance";
+      default: return "Unknown";
     }
   }
 
@@ -231,7 +279,7 @@ class AppStateManager extends ChangeNotifier {
 
   void dispose() {
     _gloveSubscription?.cancel();
-    _statusSubscription?.cancel();
+    _customSubscription?.cancel();
     _heartbeatTimer?.cancel();
     _audioPlayer.dispose();
     super.dispose();
