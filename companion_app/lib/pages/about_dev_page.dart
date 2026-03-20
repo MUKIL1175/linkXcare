@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/app_state_manager.dart';
 
 class AboutDevPage extends StatefulWidget {
@@ -63,6 +64,17 @@ class _AboutDevPageState extends State<AboutDevPage> {
     _showDevOptions = state.isDeveloperMode;
   }
 
+  Future<void> _launchUpdateUrl() async {
+    final Uri url = Uri.parse('https://github.com/MUKIL1175/linkXcare/raw/main/app-release.apk');
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Could not launch update URL")),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -73,13 +85,39 @@ class _AboutDevPageState extends State<AboutDevPage> {
           children: [
             const Icon(Icons.accessibility_new, size: 80, color: Colors.indigo),
             const SizedBox(height: 10),
-            const Text("LinkXcare v2.0", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const Text("LinkXcare v2.1", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)), // Updated version
+            const SizedBox(height: 8),
             Text(
               state.isDeveloperMode
                   ? "Designer & Developer: Monamukil SS"
                   : "Designer & Developer: Nisha Priyadharshini J",
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
+            const SizedBox(height: 24),
+            
+            // Premium Update Button
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF2979FF), Color(0xFF1565C0)]),
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [BoxShadow(color: const Color(0xFF2979FF).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _launchUpdateUrl,
+                icon: const Icon(Icons.system_update_alt_rounded, color: Colors.white),
+                label: const Text("GET LATEST UPDATE", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangle_border_radius_circular_15(),
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 20),
             const Divider(),
             SwitchListTile(
               title: const Text("Developer Mode"),
@@ -92,6 +130,9 @@ class _AboutDevPageState extends State<AboutDevPage> {
       ),
     );
   }
+
+  // Helper for cleaner style
+  RoundedRectangleBorder RoundedRectangle_border_radius_circular_15() => RoundedRectangleBorder(borderRadius: BorderRadius.circular(15));
 
   Widget _buildDevModePanel() {
     return Container(
