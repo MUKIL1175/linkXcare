@@ -76,9 +76,11 @@ def get_time_str():
         h -= 12
 
     m_str = "0"+str(m) if m < 10 else str(m)
+    s = t[5]
+    s_str = "0"+str(s) if s < 10 else str(s)
 
-    return "{}-{}-{}/{}:{}{}".format(
-        t[2], months[t[1]-1], str(t[0])[2:], h, m_str, suffix
+    return "{}-{}-{}/{}:{}:{}{}".format(
+        t[2], months[t[1]-1], str(t[0])[2:], h, m_str, s_str, suffix
     )
 
 # -----------------------------
@@ -220,8 +222,11 @@ while True:
         put_json(FSR_URL, {str(i): perc[i] for i in range(5)})
 
         if time.time() - last_online_update > 5:
-            # Send UNIX Timestamp (integer) as the heartbeat
-            put_json(ONLINE_URL, time.time())
+            now_str = get_time_str()
+            # Send both Formatted String and Numeric Heartbeat
+            put_json(ONLINE_URL, now_str)
+            put_json(BASE_URL + "/realtime/{}/heartbeat.json".format(DEVICE), time.time())
+            
             last_online_update = time.time()
 
         # refresh gestures dynamically

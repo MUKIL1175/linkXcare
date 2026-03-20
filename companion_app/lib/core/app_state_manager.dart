@@ -19,10 +19,11 @@ class AppStateManager extends ChangeNotifier {
   bool isDeveloperMode = false;
   String currentGesture = "None";
   List<int> fsrValues = [0, 0, 0, 0, 0];
-  int lastHeartbeat = 0;
+  int lastHeartbeat = DateTime.now().millisecondsSinceEpoch;
   bool isGloveConnected = false;
   Map<String, dynamic> _customGestures = {};
   dynamic _lastRemoteValue;
+  dynamic _lastHeartbeatValue;
   
   StreamSubscription<DatabaseEvent>? _gloveSubscription;
   StreamSubscription<DatabaseEvent>? _customSubscription;
@@ -105,15 +106,22 @@ class AppStateManager extends ChangeNotifier {
         lastHeartbeat = hb;
       }
       
-      // 4. Update Connection Status (Robust Relative Heartbeat Strategy)
+      // 4. Update Connection Status (Multi-Signal Activity Detection)
       final dynamic onlineRaw = data['is_online'];
+      final dynamic heartbeatRaw = data['heartbeat'];
       
-      // If the heartbeat value CHANGED, it means the device is alive
-      if (onlineRaw != null && onlineRaw != _lastRemoteValue) {
+      // Treat ANY data arriving as a heartbeat (Activity-Based)
+      // and also track specific field changes for extra resolution.
+      if (onlineRaw != _lastRemoteValue || heartbeatRaw != _lastHeartbeatValue) {
         _lastRemoteValue = onlineRaw;
-        lastHeartbeat = DateTime.now().millisecondsSinceEpoch; // Sync to LOCAL time
+        _lastHeartbeatValue = heartbeatRaw;
+        lastHeartbeat = DateTime.now().millisecondsSinceEpoch;
         isGloveConnected = true;
       }
+      
+      // Force Online if data is currently arriving
+      lastHeartbeat = DateTime.now().millisecondsSinceEpoch;
+      isGloveConnected = true;
       
       final now = DateTime.now().millisecondsSinceEpoch;
       final bool pulse = (now - lastHeartbeat) < 15000;
