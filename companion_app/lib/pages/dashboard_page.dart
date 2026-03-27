@@ -48,9 +48,9 @@ class DashboardPage extends StatelessWidget {
                                 children: [
                                   const Text("Live Gesture", style: TextStyle(fontSize: 16, color: Colors.white70)), 
                                   Text(
-                                    (!state.isGloveConnected && !state.isDeveloperMode) ? "Offline" : state.currentGesture, 
+                                    !state.isGloveConnected ? "Offline" : state.currentGesture, 
                                     key: ValueKey<String>(state.currentGesture),
-                                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: (!state.isGloveConnected && !state.isDeveloperMode) ? Colors.white24 : const Color(0xFF2979FF))
+                                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: !state.isGloveConnected ? Colors.white24 : const Color(0xFF2979FF))
                                   )
                                 ]
                               ),
@@ -62,9 +62,9 @@ class DashboardPage extends StatelessWidget {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
-                                      color: (state.isGloveConnected || state.isDeveloperMode) ? Colors.greenAccent.withOpacity(0.1) : Colors.redAccent.withOpacity(0.1),
+                                      color: state.isGloveConnected ? Colors.greenAccent.withOpacity(0.1) : Colors.redAccent.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(color: (state.isGloveConnected || state.isDeveloperMode) ? Colors.greenAccent.withOpacity(0.5) : Colors.redAccent.withOpacity(0.5)),
+                                      border: Border.all(color: state.isGloveConnected ? Colors.greenAccent.withOpacity(0.5) : Colors.redAccent.withOpacity(0.5)),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -72,18 +72,18 @@ class DashboardPage extends StatelessWidget {
                                         Container(
                                           width: 8, height: 8,
                                           decoration: BoxDecoration(
-                                            color: (state.isGloveConnected || state.isDeveloperMode) ? Colors.greenAccent : Colors.redAccent,
+                                            color: state.isGloveConnected ? Colors.greenAccent : Colors.redAccent,
                                             shape: BoxShape.circle,
-                                            boxShadow: (state.isGloveConnected || state.isDeveloperMode) 
+                                            boxShadow: state.isGloveConnected 
                                               ? [BoxShadow(color: Colors.greenAccent.withOpacity(0.8), blurRadius: 6)] 
                                               : [],
                                           ),
                                         ),
                                         const SizedBox(width: 8),
                                         Text(
-                                          (state.isGloveConnected || state.isDeveloperMode) ? "LIVE" : "OFFLINE",
+                                          state.isGloveConnected ? "LIVE" : "OFFLINE",
                                           style: TextStyle(
-                                            color: (state.isGloveConnected || state.isDeveloperMode) ? Colors.greenAccent : Colors.redAccent, 
+                                            color: state.isGloveConnected ? Colors.greenAccent : Colors.redAccent, 
                                             fontWeight: FontWeight.bold,
                                             fontSize: 12,
                                             letterSpacing: 1.1,
@@ -100,7 +100,7 @@ class DashboardPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    if (!state.isGloveConnected && !state.isDeveloperMode)
+                    if (!state.isGloveConnected)
                       _buildConnectionWarning(),
                     const SizedBox(height: 10),
                     const Align(
@@ -123,10 +123,11 @@ class DashboardPage extends StatelessWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: List.generate(5, (index) {
-                              double fillPercent = state.fsrValues[index] / 100.0;
+                              bool isBent = state.fingerState[index] == 1;
+                              double fillPercent = isBent ? 1.0 : 0.0;
                               return Column(
                                 children: [
-                                  Text("${state.fsrValues[index]}%", style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                                  Text(isBent ? "BENT" : "STR", style: TextStyle(color: isBent ? Colors.greenAccent : Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
                                   const SizedBox(height: 10),
                                   Expanded(
                                     child: Container(
@@ -145,14 +146,14 @@ class DashboardPage extends StatelessWidget {
                                             height: 200 * fillPercent, 
                                             decoration: BoxDecoration(
                                               gradient: LinearGradient(
-                                                colors: (state.isGloveConnected || state.isDeveloperMode)
+                                                colors: state.isGloveConnected 
                                                     ? [const Color(0xFF00E5FF), const Color(0xFF2979FF)]
                                                     : [const Color(0xFF475569), const Color(0xFF334155)], 
                                                 begin: Alignment.topCenter,
                                                 end: Alignment.bottomCenter,
                                               ),
                                               borderRadius: BorderRadius.circular(12),
-                                              boxShadow: (state.isGloveConnected || state.isDeveloperMode)
+                                              boxShadow: state.isGloveConnected && isBent
                                                   ? [BoxShadow(color: const Color(0xFF2979FF).withOpacity(0.6), blurRadius: 10)]
                                                   : []
                                             )

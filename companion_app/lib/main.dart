@@ -7,7 +7,7 @@ import 'pages/dashboard_page.dart';
 import 'pages/default_gestures_page.dart';
 import 'pages/custom_gestures_page.dart';
 import 'pages/history_page.dart';
-import 'pages/about_dev_page.dart';
+import 'pages/about_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -109,7 +109,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     const DefaultGesturesPage(),
     const CustomGesturesPage(),
     const HistoryPage(),
-    const AboutDevPage(),
+    const AboutPage(),
   ];
 
   @override

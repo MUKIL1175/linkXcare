@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-import '../core/app_state_manager.dart';
 
 class DefaultGesturesPage extends StatefulWidget {
   const DefaultGesturesPage({super.key});
@@ -60,10 +59,6 @@ class _DefaultGesturesPageState extends State<DefaultGesturesPage> {
   }
 
   void _editAction(String key, String currentAction) {
-    if (key == "Closed" && !AppStateManager().isDeveloperMode) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Developer Mode Required!")));
-      return;
-    }
 
     final TextEditingController controller = TextEditingController(text: currentAction);
     showDialog(

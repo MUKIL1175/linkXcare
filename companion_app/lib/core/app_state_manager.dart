@@ -16,17 +16,17 @@ class AppStateManager extends ChangeNotifier {
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
   bool isSosActive = false;
-  bool isDeveloperMode = false;
   String currentGesture = "None";
-  List<int> fsrValues = [0, 0, 0, 0, 0];
-  int lastHeartbeat = DateTime.now().millisecondsSinceEpoch;
+  List<int> fingerState = [0, 0, 0, 0, 0];
+  int lastHeartbeat = 0; // Unix seconds
   bool isGloveConnected = false;
   Map<String, dynamic> _customGestures = {};
-  dynamic _lastRemoteValue;
-  dynamic _lastHeartbeatValue;
+  Map<String, String> _defaultGestures = {};
+  int _lastHeartbeatValue = 0;
   
   StreamSubscription<DatabaseEvent>? _gloveSubscription;
   StreamSubscription<DatabaseEvent>? _customSubscription;
+  StreamSubscription<DatabaseEvent>? _defaultGesturesSubscription;
   Timer? _heartbeatTimer;
 
   Future<void> initialize() async {
@@ -36,9 +36,6 @@ class AppStateManager extends ChangeNotifier {
     } catch (e) {
       print("DEBUG: Persistence Error: $e");
     }
-
-    final prefs = await SharedPreferences.getInstance();
-    isDeveloperMode = prefs.getBool('dev_mode') ?? false;
 
     // Set default volume to 70%
     await _audioPlayer.setVolume(0.7);
@@ -53,6 +50,7 @@ class AppStateManager extends ChangeNotifier {
       _glovePluginPermission();
     _startGloveStream();
     _startCustomGesturesStream();
+    _startDefaultGesturesStream();
     _startHeartbeatWatchdog();
 
     try {
@@ -69,88 +67,81 @@ class AppStateManager extends ChangeNotifier {
       if (data == null) return;
       
       // 1. Update Core Data
-      String resolvedGesture = (data['active_gesture'] ?? data['gesture']) ?? "None";
-      fsrValues = List<int>.from(data['fsr'] ?? [0, 0, 0, 0, 0]);
+      fingerState = List<int>.from(data['finger_state'] ?? [0, 0, 0, 0, 0]);
 
-      // 2. Custom & Default Gesture Resolution
-      if (resolvedGesture == "None" || resolvedGesture == "Ready") {
-        final currentFingerStates = fsrValues.map((v) => v > 75 ? 1 : 0).toList();
-        
-        // Check Custom Gestures First
-        bool foundCustom = false;
-        _customGestures.forEach((key, value) {
-          if (foundCustom) return;
-          if (value is Map) {
-            final ticks = List<int>.from(value['tickBoxes'] ?? []);
-            if (listEquals(ticks, currentFingerStates) && ticks.contains(1)) {
-              resolvedGesture = value['message'] ?? resolvedGesture;
-              foundCustom = true;
-            }
+      // 2. Gesture Resolution
+      String resolvedGesture = "None";
+      
+      // Check Custom Gestures First
+      bool foundCustom = false;
+      _customGestures.forEach((key, value) {
+        if (foundCustom) return;
+        if (value is Map) {
+          final ticks = List<int>.from(value['tickBoxes'] ?? []);
+          if (listEquals(ticks, fingerState) && ticks.contains(1)) {
+            resolvedGesture = value['message'] ?? "None";
+            foundCustom = true;
           }
-        });
+        }
+      });
 
-        // Fallback to Single-Finger Defaults if no custom match
-        if (!foundCustom) {
-          for (int i = 0; i < fsrValues.length; i++) {
-            if (fsrValues[i] > 75) {
+      // Fallback to Single-Finger Defaults if no custom match
+      if (!foundCustom) {
+        int activeCount = fingerState.where((s) => s == 1).length;
+        if (activeCount == 1) {
+          for (int i = 0; i < fingerState.length; i++) {
+            if (fingerState[i] == 1) {
               resolvedGesture = _getGestureForFinger(index: i);
               break; 
             }
           }
+        } else if (activeCount == 5) {
+          resolvedGesture = _defaultGestures['closed_fingers'] ?? "Emergency"; 
         }
       }
       
-      // 3. Update Heartbeat
+      // 3. Update Heartbeat & Online Status
       final int hb = data['heartbeat'] ?? 0;
-      if (hb > 0) {
-        lastHeartbeat = hb;
-      }
-      
-      // 4. Update Connection Status (Multi-Signal Activity Detection)
-      final dynamic onlineRaw = data['is_online'];
-      final dynamic heartbeatRaw = data['heartbeat'];
-      
-      // Treat ANY data arriving as a heartbeat (Activity-Based)
-      // and also track specific field changes for extra resolution.
-      if (onlineRaw != _lastRemoteValue || heartbeatRaw != _lastHeartbeatValue) {
-        _lastRemoteValue = onlineRaw;
-        _lastHeartbeatValue = heartbeatRaw;
-        lastHeartbeat = DateTime.now().millisecondsSinceEpoch;
+      if (hb > 0 && hb != _lastHeartbeatValue) {
+        _lastHeartbeatValue = hb;
+        lastHeartbeat = DateTime.now().millisecondsSinceEpoch ~/ 1000;
         isGloveConnected = true;
+        print("DEBUG: Heartbeat Updated: $hb at $lastHeartbeat");
+        
+        // Update is_online in Firebase (App reports last online time)
+        _updateLastOnlineTime();
       }
       
-      // Force Online if data is currently arriving
-      lastHeartbeat = DateTime.now().millisecondsSinceEpoch;
-      isGloveConnected = true;
-      
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final bool pulse = (now - lastHeartbeat) < 15000;
-
-      if (isGloveConnected != pulse) {
-        isGloveConnected = pulse;
-      }
-      
-      // 5. Reactive Events (Notifications, Logic)
-      if (currentGesture != resolvedGesture && resolvedGesture != "None" && resolvedGesture != "Ready") {
+      // 4. Reactive Events (Notifications, Logic)
+      if (currentGesture != resolvedGesture && resolvedGesture != "None") {
         _showNotification(title: "Live Gesture Detected", body: "Message: $resolvedGesture");
         logGesture(resolvedGesture);
+        
+        // Report active gesture to Firebase
+        _gloveRef.update({'active_gesture_online': resolvedGesture});
       }
       
       currentGesture = resolvedGesture;
       
-      if (currentGesture.toUpperCase() == "EMERGENCY" && !isSosActive) {
+      if (currentGesture.toLowerCase() == "emergency" && !isSosActive) {
         triggerSOS(source: "Glove");
       }
 
-      if (fsrValues.length == 5 && fsrValues.every((v) => v >= 90) && !isSosActive) {
+      if (fingerState.every((s) => s == 1) && !isSosActive) {
         triggerSOS(source: "Closed Fingers");
       }
       
-      // 6. Watchdog Correction (Sync back to Firebase if dead)
-      _updateConnectionStatus();
-
       notifyListeners();
     });
+  }
+
+  void _updateLastOnlineTime() {
+    final now = DateTime.now();
+    // Format: "21-mar-26/10:09"
+    final months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+    final formattedTime = "${now.day.toString().padLeft(2, '0')}-${months[now.month - 1]}-${now.year.toString().substring(2)}/${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+    
+    _gloveRef.update({'is_online': formattedTime});
   }
 
    void _startCustomGesturesStream() {
@@ -164,6 +155,17 @@ class AppStateManager extends ChangeNotifier {
     });
   }
 
+  void _startDefaultGesturesStream() {
+    _defaultGesturesSubscription?.cancel();
+    _defaultGesturesSubscription = FirebaseDatabase.instance.ref('default_gestures').onValue.listen((event) {
+      final data = event.snapshot.value;
+      if (data is Map) {
+        _defaultGestures = data.map((key, value) => MapEntry(key.toString(), value.toString()));
+        notifyListeners();
+      }
+    });
+  }
+
   void _startHeartbeatWatchdog() {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
@@ -172,18 +174,28 @@ class AppStateManager extends ChangeNotifier {
   }
 
   void _updateConnectionStatus() {
-    // Universal Server Timestamp Strategy: compare milliseconds
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final bool pulse = (now - lastHeartbeat) < 15000; // 15s buffer for server/local delta
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    // 15s buffer for ESP32 5s heartbeat (allows ~2 missed beats)
+    final bool pulse = (now - lastHeartbeat) < 15; 
+    print("DEBUG: Watchdog - Now: $now, LastHB: $lastHeartbeat, Diff: ${now - lastHeartbeat}, Pulse: $pulse, Connected: $isGloveConnected");
     
-    // Status is determined purely by the app's local logic
     if (isGloveConnected != pulse) {
+      print("DEBUG: Connection Status Changing to: $pulse");
       isGloveConnected = pulse;
       notifyListeners();
     }
   }
 
   String _getGestureForFinger({required int index}) {
+    final keys = ['thumb_finger', 'index_finger', 'middle_finger', 'ring_finger', 'pinky_finger'];
+    if (index < 0 || index >= keys.length) return "Unknown";
+    
+    final key = keys[index];
+    if (_defaultGestures.containsKey(key)) {
+      return _defaultGestures[key]!;
+    }
+
+    // Fallback constants if Firebase is not yet loaded
     switch (index) {
       case 0: return "Need water";
       case 1: return "Restroom";
@@ -232,7 +244,7 @@ class AppStateManager extends ChangeNotifier {
         'index_finger': 'Restroom',
         'middle_finger': 'Need food',
         'ring_finger': 'Need medicines',
-        'pinky_finger': 'restroom',
+        'pinky_finger': 'Need assistance',
         'closed_fingers': 'Emergency',
       }).timeout(const Duration(seconds: 2));
       await prefs.setBool('did_seed_v3', true);
@@ -268,9 +280,10 @@ class AppStateManager extends ChangeNotifier {
     await _audioPlayer.setReleaseMode(ap.ReleaseMode.release);
     Vibration.cancel();
     
-    if (!isDeveloperMode) {
-       _gloveRef.update({'active_gesture': 'None'});
-    }
+    _gloveRef.update({
+      'active_gesture': 'None',
+      'active_gesture_online': 'None'
+    });
   }
 
   Future<void> playIntro() async {
@@ -283,20 +296,21 @@ class AppStateManager extends ChangeNotifier {
   }
 
   Future<void> logGesture(String message) async {
-    final String path = isDeveloperMode ? 'logs/dev_history/glove_01' : 'logs/real_history/glove_01';
+    const String path = 'logs/real_history/glove_01';
     final ref = FirebaseDatabase.instance.ref(path).push();
     final now = DateTime.now().millisecondsSinceEpoch;
     
     await ref.set({
       'msg': message,
       'time': now,
-      'source': isDeveloperMode ? 'Developer Simulation' : 'Physical Glove'
+      'source': 'Physical Glove'
     });
   }
 
   void dispose() {
     _gloveSubscription?.cancel();
     _customSubscription?.cancel();
+    _defaultGesturesSubscription?.cancel();
     _heartbeatTimer?.cancel();
     _audioPlayer.dispose();
     super.dispose();

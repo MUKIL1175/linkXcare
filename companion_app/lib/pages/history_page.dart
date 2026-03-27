@@ -8,36 +8,19 @@ class HistoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text("Gesture History"),
-          bottom: const TabBar(
-            tabs: [
-              Tab(icon: Icon(Icons.code), text: "Developer"),
-              Tab(icon: Icon(Icons.history), text: "Real Time"),
-            ],
-            indicatorColor: Color(0xFF2979FF),
-            labelColor: Color(0xFF2979FF),
-            unselectedLabelColor: Colors.white70,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Gesture History"),
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0F172A), Color(0xFF1A237E)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
         ),
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF0F172A), Color(0xFF1A237E)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-          child: const TabBarView(
-            children: [
-              HistoryList(path: 'logs/dev_history/glove_01'),
-              HistoryList(path: 'logs/real_history/glove_01'),
-            ],
-          ),
-        ),
+        child: const HistoryList(path: 'logs/real_history/glove_01'),
       ),
     );
   }

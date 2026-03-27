@@ -20,7 +20,6 @@
 - **Gesture Recognition**: Translates complex finger positions into human-readable messages (e.g., "Need Water", "Restroom").
 - **SOS Watchdog**: Dedicated emergency mode that triggers a full-screen red alert and audible alarm on the companion app.
 - **Heartbeat Monitoring**: Real-time connectivity watchdog to ensure the device is online and data is valid.
-- **Developer Mode**: Secure gate (Passcode: 1711) for calibration and manual sensor testing.
 
 ---
 
@@ -87,8 +86,7 @@
 
 ---
 
-## 🛡️ Security & Calibration
-- **Developer Access**: Enter `1711` in the About page to access raw sensor data.
+## 🛡️ Calibration
 - **Hardware Calibration**: Hold the physical button (Pin 5) for 5 seconds to trigger the "Min/Max" calibration routine. Keep fingers flat, then clench a fist when prompted.
 
 ---
