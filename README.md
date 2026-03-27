@@ -4,7 +4,7 @@
   <a href="https://github.com/MUKIL1175/linkXcare">
     <img src="https://img.shields.io/badge/Repository-Link-blue?style=for-the-badge&logo=github&logoColor=white" alt="Repo Link">
   </a>
-  <a href="https://github.com/MUKIL1175/linkXcare/raw/main/app-release.apk">
+  <a href="https://raw.githubusercontent.com/MUKIL1175/linkXcare/main/app-release.apk">
     <img src="https://img.shields.io/badge/Download-APK-2E7D32?style=for-the-badge&logo=android&logoColor=white" alt="Download APK">
   </a>
 </p>

@@ -5,7 +5,7 @@ class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
 
   Future<void> _launchUpdateUrl(BuildContext context) async {
-    final Uri url = Uri.parse('https://github.com/MUKIL1175/linkXcare/raw/main/app-release.apk');
+    final Uri url = Uri.parse('https://raw.githubusercontent.com/MUKIL1175/linkXcare/main/app-release.apk');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
