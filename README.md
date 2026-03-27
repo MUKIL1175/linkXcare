@@ -16,8 +16,8 @@
 
 ## 🚀 Key Features
 
-- **Real-Time Telemetry**: 5-channel FSR data visualized in a fluid, glassmorphic Dashboard.
-- **Gesture Recognition**: Translates complex finger positions into human-readable messages (e.g., "Need Water", "Restroom").
+- **Real-Time Telemetry**: 5-channel button status visualized in a fluid, glassmorphic Dashboard.
+- **Gesture Recognition**: Translates finger button presses into human-readable messages (e.g., "Need Water", "Restroom").
 - **SOS Watchdog**: Dedicated emergency mode that triggers a full-screen red alert and audible alarm on the companion app.
 - **Heartbeat Monitoring**: Real-time connectivity watchdog to ensure the device is online and data is valid.
 
@@ -31,8 +31,8 @@
   - Onboard WiFi for real-time Firebase syncing.
 
 ### 2. Sensors & Input
-- **Flex Sensors**: 5x Force Sensitive Resistors (FSR) or Flex Slit Sensors.
-- **Calibration Button**: Momentary tactile switch (used for zeroing the glove).
+- **Input Buttons**: 5x Tactile Buttons (one for each finger).
+- **Setup**: Configured with internal pull-ups (Active LOW).
 
 ### 3. Output & Display
 - **OLED Display**: 0.96" SSD1306 (128x64 pixels).
@@ -41,14 +41,13 @@
 ### 4. Wire Mapping (ESP32-C3)
 | Component | Pin | Function |
 |-----------|-----|----------|
-| **FSR 1 (Thumb)** | Pin 3 | Analog In |
-| **FSR 2 (Index)** | Pin 2 | Analog In |
-| **FSR 3 (Middle)**| Pin 0 | Analog In |
-| **FSR 4 (Ring)**  | Pin 1 | Analog In |
-| **FSR 5 (Pinky)** | Pin 4 | Analog In |
+| **Button 1 (Thumb)** | Pin 0 | Digital In (Pull-up) |
+| **Button 2 (Index)** | Pin 1 | Digital In (Pull-up) |
+| **Button 3 (Middle)**| Pin 2 | Digital In (Pull-up) |
+| **Button 4 (Ring)**  | Pin 3 | Digital In (Pull-up) |
+| **Button 5 (Pinky)** | Pin 4 | Digital In (Pull-up) |
 | **OLED SCL**      | Pin 9 | I2C Clock |
 | **OLED SDA**      | Pin 8 | I2C Data |
-| **CAL Button**    | Pin 5 | Pulled Up |
 
 ---
 
@@ -86,8 +85,8 @@
 
 ---
 
-## 🛡️ Calibration
-- **Hardware Calibration**: Hold the physical button (Pin 5) for 5 seconds to trigger the "Min/Max" calibration routine. Keep fingers flat, then clench a fist when prompted.
+## 🛡️ Operation
+- **Gesture Input**: Press the corresponding finger buttons to trigger gestures. The system detects "BENT" (Pressed) and "STRAIGHT" (Released) states.
 
 ---
 
