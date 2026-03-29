@@ -26,7 +26,7 @@ class AboutPage extends StatelessWidget {
             const SizedBox(height: 20),
             const Icon(Icons.accessibility_new, size: 80, color: Color(0xFF2979FF)),
             const SizedBox(height: 16),
-            const Text("LinkXcare v2.1", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+            const Text("LinkXcare version:X", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
             const SizedBox(height: 8),
             const Text(
               "Designer & Developer: Nisha Priyadharshini J",
