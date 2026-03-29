@@ -52,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     await state.initialize(); // Init state
     await state.playIntro(); // Play intro audio
 
-    await Future.delayed(const Duration(milliseconds: 3000));
+    await Future.delayed(const Duration(milliseconds: 1200));
     
     if (mounted) {
       Navigator.of(context).pushReplacement(
